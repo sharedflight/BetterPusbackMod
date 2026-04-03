@@ -44,20 +44,17 @@ jobs:
             unzip libxcursor-dev libglu1-mesa-dev libpulse-dev libasound2-dev \
             mingw-w64-x86-64-dev gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64 \
             qtbase5-dev qt5-qmake
-      - name: Fix mingw_stdthreads submodule
+      - name: Fix broken submodule refs in libacfutils
         if: steps.cache.outputs.cache-hit != 'true'
         run: |
           cd libacfutils
-          # The repo-level mingw-std-threads submodule ref is broken upstream.
-          # Clone it manually so openal-soft's Windows build can find it.
-          git clone --depth=1 https://github.com/meganz/mingw-std-threads.git mingw-std-threads || true
-          # Also place it where openal-soft's CMakeLists.txt expects it
-          for d in openal-soft/openal-soft-*-win-*/; do
-            if [ -d "$d" ] && [ ! -f "$d/mingw_stdthreads/CMakeLists.txt" ]; then
-              mkdir -p "$d/mingw_stdthreads"
-              cp -r mingw-std-threads/* "$d/mingw_stdthreads/"
-            fi
-          done
+          # The mingw-std-threads submodule points to a commit that no longer
+          # exists upstream. Remove it from .gitmodules so build_deps doesn't
+          # try to init it, then clone it fresh into the expected locations.
+          git config --file .gitmodules --remove-section submodule.mingw-std-threads 2>/dev/null || true
+          git rm --cached mingw-std-threads 2>/dev/null || true
+          rm -rf mingw-std-threads
+          git clone --depth=1 https://github.com/meganz/mingw-std-threads.git mingw-std-threads
       - name: Build libacfutils dependencies
         if: steps.cache.outputs.cache-hit != 'true'
         run: |
