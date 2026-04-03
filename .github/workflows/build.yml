@@ -51,6 +51,10 @@ jobs:
           git rm --cached mingw-std-threads 2>/dev/null || true
           rm -rf mingw-std-threads
           git clone --branch 1.0.0 --depth=1 https://github.com/meganz/mingw-std-threads.git mingw-std-threads
+          # build_openal creates a symlink from openal-soft/openal-soft-*-win-64/mingw_stdthreads
+          # to ../../mingw-std-threads (relative). That resolves to openal-soft/mingw-std-threads.
+          # Place a copy there too so the symlink works.
+          cp -r mingw-std-threads openal-soft/mingw-std-threads
       - name: Build libacfutils dependencies
         if: steps.cache.outputs.cache-hit != 'true'
         run: |
