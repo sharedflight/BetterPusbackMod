@@ -24,8 +24,11 @@ jobs:
         with:
           repository: ${{ env.libacfrepo }}
           ref: ${{ env.libacfcommit }}
-          submodules: recursive
           path: libacfutils
+      - name: Init libacfutils submodules
+        run: |
+          cd libacfutils
+          git submodule update --init --recursive --depth=1 || true
       - name: Cache libacfutils lin build
         uses: actions/cache@v4
         id: cache
@@ -92,8 +95,11 @@ jobs:
         with:
           repository: ${{ env.libacfrepo }}
           ref: ${{ env.libacfcommit }}
-          submodules: recursive
           path: libacfutils
+      - name: Init libacfutils submodules
+        run: |
+          cd libacfutils
+          git submodule update --init --recursive --depth=1 || true
       - name: Cache libacfutils mac build
         uses: actions/cache@v4
         id: cache
