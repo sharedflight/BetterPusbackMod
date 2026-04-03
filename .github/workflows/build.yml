@@ -24,12 +24,13 @@ jobs:
         with:
           repository: ${{ env.libacfrepo }}
           ref: ${{ env.libacfcommit }}
+          submodules: recursive
           path: libacfutils
       - name: Cache libacfutils lin build
         uses: actions/cache@v4
         id: cache
         env:
-          cache-name: cache-libacfutils-lin-v1
+          cache-name: cache-libacfutils-ob-lin-v1
         with:
           path: ./libacfutils/
           key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ env.libacfcommit }}
@@ -91,12 +92,13 @@ jobs:
         with:
           repository: ${{ env.libacfrepo }}
           ref: ${{ env.libacfcommit }}
+          submodules: recursive
           path: libacfutils
       - name: Cache libacfutils mac build
         uses: actions/cache@v4
         id: cache
         env:
-          cache-name: cache-libacfutils-mac-v3
+          cache-name: cache-libacfutils-ob-mac-v1
         with:
           path: ./libacfutils/
           key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ env.libacfcommit }}
