@@ -12,7 +12,8 @@ on:
       - main
 
 env:
-  libacfcommit: 32cd9a3cfaa991a0bd21775ecbe984415e3135ce
+  libacfcommit: bc0b479e3b5c0e2acef12178c3a7bfbd301b6f2e
+  libacfrepo: olivierbutler/libacfutils
 
 jobs:
   build_win_lin:
@@ -21,7 +22,7 @@ jobs:
       - name: Checkout libacfutils
         uses: actions/checkout@v4
         with:
-          repository: skiselkov/libacfutils
+          repository: ${{ env.libacfrepo }}
           ref: ${{ env.libacfcommit }}
           path: libacfutils
       - name: Cache libacfutils lin build
@@ -88,7 +89,7 @@ jobs:
       - name: Checkout libacfutils
         uses: actions/checkout@v4
         with:
-          repository: skiselkov/libacfutils
+          repository: ${{ env.libacfrepo }}
           ref: ${{ env.libacfcommit }}
           path: libacfutils
       - name: Cache libacfutils mac build
