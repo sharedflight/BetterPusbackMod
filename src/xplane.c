@@ -763,10 +763,10 @@ bp_get_lang(void)
 static void
 coupled_state_change()
 {
-    /* If we were in slave mode, reenable the menu items. */
-    start_pb_enable = slave_mode ? 1 : 0;
-    conn_first_enable = start_pb_enable;
-    start_pb_plan_enable = start_pb_enable;
+    /* Enable menu items when NOT in slave mode (slave can't control pushback) */
+    start_pb_enable = !slave_mode;
+    conn_first_enable = !slave_mode;
+    start_pb_plan_enable = !slave_mode;
 
     stop_pb_enable = B_FALSE;
     stop_pb_plan_enable = B_FALSE;
@@ -838,6 +838,17 @@ status_check(float elapsed, float elapsed2, int counter, void *refcon)
     }
 
     main_intf(hide_main_intf);
+
+    /*
+     * Re-probe for coupling plugins if not found yet. This handles
+     * the case where the other plugin loaded after us.
+     */
+    if (!smartcopilot_present)
+        smartcopilot_present = dr_find(&smartcopilot_state,
+            "scp/api/ismaster");
+    if (!sharedflight_present)
+        sharedflight_present = dr_find(&sharedflight_state,
+            "SharedFlight/is_pilot_flying");
 
     // Status check only needed if we have a known system of coupling installed...
     if (!smartcopilot_present && !sharedflight_present)
@@ -1045,17 +1056,15 @@ XPluginStart(char *name, char *sig, char *desc)
     dr_create_b(&bp_tug_name_dr, bp_tug_name, sizeof(bp_tug_name),
                 B_TRUE, "bp/tug_name");
 
-    pb_set_remote_dr_cfg.write_cb = pb_set_remote_cb;    
-    pb_set_remote_dr_cfg.writable = B_FALSE;    
+    pb_set_remote_dr_cfg.write_cb = pb_set_remote_cb;
+    pb_set_remote_dr_cfg.writable = B_TRUE;
     dr_create_i_cfg(&pb_set_remote_dr, (int *)&pb_set_remote, pb_set_remote_dr_cfg,
                 "bp/parking_brake_set");
- //   pb_set_remote_dr.write_cb = pb_set_remote_cb;
 
-    pb_set_override_dr_cfg.write_cb = pb_set_override_cb;    
-    pb_set_override_dr_cfg.writable = B_FALSE;    
+    pb_set_override_dr_cfg.write_cb = pb_set_override_cb;
+    pb_set_override_dr_cfg.writable = B_TRUE;
     dr_create_i_cfg(&pb_set_override_dr, (int *)&pb_set_override, pb_set_override_dr_cfg,
                 "bp/parking_brake_override");
-//    pb_set_override_dr.write_cb = pb_set_override_cb;
 
     XPLMGetVersions(&bp_xp_ver, &bp_xplm_ver, &bp_host_id);
 

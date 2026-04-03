@@ -1,0 +1,260 @@
+name: Build BetterPushback Plugin
+
+on:
+  push:
+    branches:
+      - main
+      - 'releases/**'
+    tags:
+      - 'v*'
+  pull_request:
+    branches:
+      - main
+
+env:
+  libacfcommit: 32cd9a3cfaa991a0bd21775ecbe984415e3135ce
+
+jobs:
+  build_win_lin:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout libacfutils
+        uses: actions/checkout@v4
+        with:
+          repository: skiselkov/libacfutils
+          ref: ${{ env.libacfcommit }}
+          path: libacfutils
+      - name: Cache libacfutils lin build
+        uses: actions/cache@v4
+        id: cache
+        env:
+          cache-name: cache-libacfutils-lin-v1
+        with:
+          path: ./libacfutils/
+          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ env.libacfcommit }}
+      - name: Install ubuntu dependencies
+        run: |
+          sudo apt-get update && sudo apt install \
+            build-essential cmake pkg-config automake autoconf gawk libtool \
+            unzip libxcursor-dev libglu1-mesa-dev libpulse-dev libasound2-dev \
+            mingw-w64-x86-64-dev gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64 \
+            qtbase5-dev qt5-qmake
+      - name: Build libacfutils dependencies
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          cd libacfutils && ./build_deps
+      - name: Build libacfutils
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          cd libacfutils && cd qmake && ./build-win-lin
+      - name: Checkout BetterPusbackMod
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          path: BetterPusbackMod
+      - name: Build Windows plugin
+        run: |
+          cd BetterPusbackMod/src
+          rm -f CMakeCache.txt
+          cmake -DCMAKE_BUILD_TYPE=Release \
+                -DCMAKE_TOOLCHAIN_FILE=XCompile.cmake \
+                -DHOST=x86_64-w64-mingw32 .
+          make -j$(nproc)
+          rm -f libBetterPushback.xpl.dll.a
+      - name: Build Linux plugin
+        run: |
+          cd BetterPusbackMod/src
+          rm -f CMakeCache.txt
+          cmake -DCMAKE_BUILD_TYPE=Release .
+          make -j$(nproc)
+      - name: Strip binaries
+        run: |
+          strip BetterPusbackMod/win_x64/BetterPushback.xpl
+          strip BetterPusbackMod/lin_x64/BetterPushback.xpl
+      - name: Upload win_x64 artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: BetterPushback_win
+          path: BetterPusbackMod/win_x64/BetterPushback.xpl
+      - name: Upload lin_x64 artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: BetterPushback_lin
+          path: BetterPusbackMod/lin_x64/BetterPushback.xpl
+
+  build_mac:
+    runs-on: macos-14
+    steps:
+      - name: Checkout libacfutils
+        uses: actions/checkout@v4
+        with:
+          repository: skiselkov/libacfutils
+          ref: ${{ env.libacfcommit }}
+          path: libacfutils
+      - name: Cache libacfutils mac build
+        uses: actions/cache@v4
+        id: cache
+        env:
+          cache-name: cache-libacfutils-mac-v3
+        with:
+          path: ./libacfutils/
+          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ env.libacfcommit }}
+      - name: Install brew dependencies
+        env:
+          HOMEBREW_NO_INSTALL_CLEANUP: 1
+        run: |
+          brew install autoconf automake cmake gnu-sed libtool pkg-config qt@5
+          brew link qt@5 --force
+          brew uninstall --ignore-dependencies brotli
+      - name: Patch libacfutils for newer CMake
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          sed -i '' 's/-DALSOFT_BACKEND_JACK=OFF"/-DALSOFT_BACKEND_JACK=OFF -DCMAKE_POLICY_VERSION_MINIMUM=3.5"/' libacfutils/openal-soft/build_openal
+      - name: Build libacfutils dependencies
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          cd libacfutils && ./build_deps
+      - name: Build libacfutils
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          cd libacfutils && cd qmake && ./build-mac
+      - name: Checkout BetterPusbackMod
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          path: BetterPusbackMod
+      - name: Build macOS plugin
+        run: |
+          cd BetterPusbackMod/src
+          rm -f CMakeCache.txt
+          cmake -DCMAKE_BUILD_TYPE=Release .
+          make -j$(sysctl -n hw.logicalcpu)
+      - name: Upload mac_x64 artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: BetterPushback_mac
+          path: BetterPusbackMod/mac_x64/BetterPushback.xpl
+
+  build_zip:
+    runs-on: macos-14
+    needs: [build_mac, build_win_lin]
+    steps:
+      - name: Checkout BetterPusbackMod
+        uses: actions/checkout@v4
+      - name: Create plugin directory structure
+        run: |
+          mkdir -p BetterPushback/mac_x64
+          mkdir -p BetterPushback/lin_x64
+          mkdir -p BetterPushback/win_x64
+      - name: Download mac artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: BetterPushback_mac
+          path: BetterPushback/mac_x64/
+      - name: Download win artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: BetterPushback_win
+          path: BetterPushback/win_x64/
+      - name: Download lin artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: BetterPushback_lin
+          path: BetterPushback/lin_x64/
+      - name: Install data files
+        run: |
+          # Core files
+          cp COPYING BetterPushback/
+          mkdir -p BetterPushback/data/msgs
+          cp data/msgs/README.txt BetterPushback/data/msgs/
+          cp data/msgs/cc_aliases.cfg BetterPushback/data/msgs/
+          mkdir -p BetterPushback/objects/tugs
+          cp objects/tugs/LIVERIES_HOWTO.txt BetterPushback/objects/tugs/
+          cp objects/night_lamp.obj BetterPushback/objects/
+
+          # Audio files
+          find data/msgs -type f -iname '*.opus' | while read f; do
+            dir="BetterPushback/$(dirname "$f")"
+            mkdir -p "$dir"
+            cp "$f" "$dir/"
+          done
+
+          # Icon files
+          for dir in data/icons/[a-z][a-z]; do
+            mkdir -p "BetterPushback/$dir"
+            cp "$dir"/*.png "BetterPushback/$dir/" 2>/dev/null || true
+          done
+
+          # Tug files
+          find objects/tugs/*.tug -type f \
+            '(' -iname '*.obj' -or -iname '*.cfg' -or -iname '*.wav' \
+            -or -iname '*.opus' -or -iname '*.png' ')' | while read f; do
+            dir="BetterPushback/$(dirname "$f")"
+            mkdir -p "$dir"
+            cp "$f" "$dir/"
+          done
+
+          # PO translation files
+          find data/po -iname '*.po' | while read f; do
+            dir="BetterPushback/$(dirname "$f")"
+            mkdir -p "$dir"
+            cp "$f" "$dir/"
+          done
+
+          # Override ACF files
+          find objects/override -iname '*.acf' 2>/dev/null | while read f; do
+            dir="BetterPushback/$(dirname "$f")"
+            mkdir -p "$dir"
+            cp "$f" "$dir/"
+          done
+      - name: Developer certificate
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
+          P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          CERTIFICATE_PATH=$RUNNER_TEMP/build_certificate.p12
+          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+          echo -n "$BUILD_CERTIFICATE_BASE64" | base64 --decode -o $CERTIFICATE_PATH
+          security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security import $CERTIFICATE_PATH -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security list-keychain -d user -s $KEYCHAIN_PATH
+      - name: Code signing
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          /usr/bin/codesign --deep --force -s "${{ secrets.APPLE_TEAM_ID }}" \
+            --verbose=4 --timestamp --options runtime \
+            BetterPushback/mac_x64/BetterPushback.xpl
+          codesign --display --verbose=4 BetterPushback/mac_x64/BetterPushback.xpl
+      - name: Create ZIP
+        run: |
+          zip -r BetterPushback.zip BetterPushback
+      - name: Notarize ZIP
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          xcrun notarytool submit BetterPushback.zip \
+            --apple-id "${{ secrets.APPLE_DEVELOPER_EMAIL }}" \
+            --team-id "${{ secrets.APPLE_TEAM_ID }}" \
+            --password "${{ secrets.APP_STORE_CONNECT_PASSWORD }}" \
+            --wait > output.txt 2>&1 || true
+          cat output.txt
+          SUBMISSIONID=$(awk '/id: / { print $2;exit; }' output.txt)
+          echo "id: ${SUBMISSIONID}"
+          if [ -n "$SUBMISSIONID" ]; then
+            xcrun notarytool log "$SUBMISSIONID" \
+              --apple-id "${{ secrets.APPLE_DEVELOPER_EMAIL }}" \
+              --team-id "${{ secrets.APPLE_TEAM_ID }}" \
+              --password "${{ secrets.APP_STORE_CONNECT_PASSWORD }}" \
+              logresult.json
+            cat logresult.json
+          fi
+          grep -q "status: Accepted" output.txt
+      - name: Upload BetterPushback.zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: BetterPushback.zip
+          path: BetterPushback.zip
