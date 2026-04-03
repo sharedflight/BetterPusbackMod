@@ -54,7 +54,8 @@ jobs:
           git config --file .gitmodules --remove-section submodule.mingw-std-threads 2>/dev/null || true
           git rm --cached mingw-std-threads 2>/dev/null || true
           rm -rf mingw-std-threads
-          git clone --depth=1 https://github.com/meganz/mingw-std-threads.git mingw-std-threads
+          git clone https://github.com/meganz/mingw-std-threads.git mingw-std-threads
+          cd mingw-std-threads && git checkout v1.0.0 && cd ..
       - name: Build libacfutils dependencies
         if: steps.cache.outputs.cache-hit != 'true'
         run: |
