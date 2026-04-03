@@ -29,7 +29,7 @@ jobs:
         uses: actions/cache@v4
         id: cache
         env:
-          cache-name: cache-libacfutils-ob-lin-v2
+          cache-name: cache-libacfutils-ob-lin-v3
         with:
           path: ./libacfutils/
           key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ env.libacfcommit }}
