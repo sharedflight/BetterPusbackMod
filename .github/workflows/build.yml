@@ -29,7 +29,7 @@ jobs:
         uses: actions/cache@v4
         id: cache
         env:
-          cache-name: cache-libacfutils-ob-lin-v7
+          cache-name: cache-libacfutils-ob-lin-v8
         with:
           path: ./libacfutils/
           key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ env.libacfcommit }}
@@ -64,7 +64,7 @@ jobs:
           # The script does: tar xjvf ... && mv "$DIR" "$DIR-win-64"
           # We add a cp right after the mv line.
           sed -i '/mv "$DIR" "$DIR-win-64"/a\
-              cp -r ../../mingw-std-threads "$DIR-win-64/mingw_stdthreads"' \
+              cp -r ../mingw-std-threads "$DIR-win-64/mingw_stdthreads"' \
               openal-soft/build_openal
           echo "=== Patched build_openal ==="
           grep -n "mingw" openal-soft/build_openal
