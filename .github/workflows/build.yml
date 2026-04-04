@@ -29,7 +29,7 @@ jobs:
         uses: actions/cache@v4
         id: cache
         env:
-          cache-name: cache-libacfutils-ob-lin-v5
+          cache-name: cache-libacfutils-ob-lin-v6
         with:
           path: ./libacfutils/
           key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ env.libacfcommit }}
@@ -59,21 +59,23 @@ jobs:
         if: steps.cache.outputs.cache-hit != 'true'
         run: |
           cd libacfutils
-          # Monitor for openal-soft extraction and inject mingw_stdthreads
-          # before cmake can fail. Run in background during build_deps.
-          (while true; do
-            for d in openal-soft/openal-soft-*-win-64/; do
-              if [ -d "$d" ] && [ -d "$d/CMakeFiles" ] 2>/dev/null; then continue; fi
-              if [ -d "$d" ] && [ ! -f "$d/mingw_stdthreads/CMakeLists.txt" ]; then
-                cp -r mingw-std-threads "$d/mingw_stdthreads" 2>/dev/null && \
-                  echo "CI: Injected mingw_stdthreads into $d"
-              fi
-            done
-            sleep 1
-          done) &
-          MONITOR_PID=$!
+          # Patch the openal-soft tarball to include mingw-std-threads before
+          # build_deps extracts it. The original submodule ref is broken, so
+          # we inject our clone directly into the tarball.
+          TARBALL=$(ls openal-soft/openal-soft-*.tar.xz 2>/dev/null | head -1)
+          if [ -n "$TARBALL" ]; then
+            TMPDIR=$(mktemp -d)
+            cd openal-soft
+            tar xf "$(basename "$TARBALL")" -C "$TMPDIR"
+            # Find the win-64 source dir name from the CMakeLists.txt
+            SRCDIR=$(basename "$(ls -d $TMPDIR/openal-soft-*/)")
+            cp -r ../mingw-std-threads "$TMPDIR/$SRCDIR/mingw_stdthreads"
+            cd "$TMPDIR" && tar cJf patched.tar.xz "$SRCDIR"
+            cp patched.tar.xz "$OLDPWD/$(basename "$TARBALL")"
+            cd "$OLDPWD/.."
+            rm -rf "$TMPDIR"
+          fi
           ./build_deps
-          kill $MONITOR_PID 2>/dev/null || true
       - name: Build libacfutils
         if: steps.cache.outputs.cache-hit != 'true'
         run: |
