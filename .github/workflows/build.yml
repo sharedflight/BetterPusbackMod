@@ -17,7 +17,7 @@ env:
 
 jobs:
   build_win_lin:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout libacfutils
         uses: actions/checkout@v4
@@ -29,7 +29,7 @@ jobs:
         uses: actions/cache@v4
         id: cache
         env:
-          cache-name: cache-libacfutils-ob-lin-v10
+          cache-name: cache-libacfutils-ob-u24-v1
         with:
           path: ./libacfutils/
           key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ env.libacfcommit }}
