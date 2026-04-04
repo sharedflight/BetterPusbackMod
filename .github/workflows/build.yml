@@ -29,7 +29,7 @@ jobs:
         uses: actions/cache@v4
         id: cache
         env:
-          cache-name: cache-libacfutils-ob-lin-v6
+          cache-name: cache-libacfutils-ob-lin-v7
         with:
           path: ./libacfutils/
           key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ env.libacfcommit }}
@@ -59,22 +59,15 @@ jobs:
         if: steps.cache.outputs.cache-hit != 'true'
         run: |
           cd libacfutils
-          # Patch the openal-soft tarball to include mingw-std-threads before
-          # build_deps extracts it. The original submodule ref is broken, so
-          # we inject our clone directly into the tarball.
-          TARBALL=$(ls openal-soft/openal-soft-*.tar.xz 2>/dev/null | head -1)
-          if [ -n "$TARBALL" ]; then
-            TMPDIR=$(mktemp -d)
-            cd openal-soft
-            tar xf "$(basename "$TARBALL")" -C "$TMPDIR"
-            # Find the win-64 source dir name from the CMakeLists.txt
-            SRCDIR=$(basename "$(ls -d $TMPDIR/openal-soft-*/)")
-            cp -r ../mingw-std-threads "$TMPDIR/$SRCDIR/mingw_stdthreads"
-            cd "$TMPDIR" && tar cJf patched.tar.xz "$SRCDIR"
-            cp patched.tar.xz "$OLDPWD/$(basename "$TARBALL")"
-            cd "$OLDPWD/.."
-            rm -rf "$TMPDIR"
-          fi
+          # Patch build_openal: after tarball extraction and mv to -win-64,
+          # copy mingw-std-threads in before cmake runs.
+          # The script does: tar xjvf ... && mv "$DIR" "$DIR-win-64"
+          # We add a cp right after the mv line.
+          sed -i '/mv "$DIR" "$DIR-win-64"/a\
+              cp -r ../../mingw-std-threads "$DIR-win-64/mingw_stdthreads"' \
+              openal-soft/build_openal
+          echo "=== Patched build_openal ==="
+          grep -n "mingw" openal-soft/build_openal
           ./build_deps
       - name: Build libacfutils
         if: steps.cache.outputs.cache-hit != 'true'
