@@ -29,7 +29,7 @@ jobs:
         uses: actions/cache@v4
         id: cache
         env:
-          cache-name: cache-libacfutils-ob-lin-v3
+          cache-name: cache-libacfutils-ob-lin-v4
         with:
           path: ./libacfutils/
           key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ env.libacfcommit }}
@@ -58,7 +58,20 @@ jobs:
       - name: Build libacfutils dependencies
         if: steps.cache.outputs.cache-hit != 'true'
         run: |
-          cd libacfutils && ./build_deps
+          cd libacfutils
+          # build_deps will fail on openal-soft Windows cross-compile because
+          # mingw_stdthreads is missing. Run it, allow failure, then fix and retry.
+          ./build_deps || true
+          # Place mingw-std-threads where openal-soft CMakeLists.txt expects it
+          for d in openal-soft/openal-soft-*-win-64/; do
+            if [ -d "$d" ] && [ ! -f "$d/mingw_stdthreads/CMakeLists.txt" ]; then
+              rm -rf "$d/mingw_stdthreads"
+              cp -r mingw-std-threads "$d/mingw_stdthreads"
+            fi
+          done
+          # Re-run build_deps — everything except openal is already built,
+          # so it will just rebuild openal-soft with mingw_stdthreads in place
+          ./build_deps
       - name: Build libacfutils
         if: steps.cache.outputs.cache-hit != 'true'
         run: |
