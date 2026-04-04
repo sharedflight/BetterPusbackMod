@@ -61,7 +61,7 @@ jobs:
           cd libacfutils
           # Patch build_openal: replace the tar+mv line with tar+mv+cp
           # so mingw-std-threads is copied in right after extraction.
-          sed -i 's|tar xjvf "$FILE" && mv "$DIR" "$DIR-win-64"|tar xjvf "$FILE" \&\& mv "$DIR" "$DIR-win-64" \&\& cp -r ../mingw-std-threads "$DIR-win-64/mingw_stdthreads"|' \
+          sed -i 's|tar xjvf "$FILE" && mv "$DIR" "$DIR-win-64"|tar xjvf "$FILE" \&\& mv "$DIR" "$DIR-win-64" \&\& echo "CI_DEBUG: pwd=$(pwd) DIR=$DIR" \&\& ls ../mingw-std-threads/CMakeLists.txt 2>\&1 \&\& cp -r ../mingw-std-threads "$DIR-win-64/mingw_stdthreads" \&\& echo "CI_DEBUG: cp done"|' \
               openal-soft/build_openal
           echo "=== Patched line ==="
           grep -n "tar xjvf" openal-soft/build_openal
